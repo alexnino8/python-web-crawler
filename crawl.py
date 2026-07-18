@@ -29,4 +29,16 @@ def get_heading_from_html(html: str) -> str:
 
     return heading
 
+def get_first_paragraph_from_html(html: str) -> str:
+    soup = BeautifulSoup(html, 'html.parser')
 
+    if soup.main != None:
+        first_p = soup.main.p
+    else: 
+        first_p = soup.p
+    
+    if first_p != None:
+        return str(first_p.string)
+        
+    return ""
+    
