@@ -1,6 +1,7 @@
 import urllib.parse
 from typing import TypedDict
 from bs4 import BeautifulSoup, Tag
+import requests
 
 
 class PageData(TypedDict):
@@ -109,3 +110,22 @@ def extract_page_data(html: str, page_url: str) -> PageData:
 
     return page_data
 
+def get_html(url: str) -> str:
+    headers = {'user-agent': "BootCrawler/1.0"}
+
+    try:    
+        r = requests.get(url, headers=headers)
+        if r.status_code >= 400:
+            raise Exception(f"Client/Server error: {r.status_code}")
+        
+        if r.headers['Content-Type'] != "text/html":
+            raise Exception(f"not html: {r.headers['Content-Type']}")
+    
+    except Exception:
+        raise 
+
+    return str(r.content)
+
+
+
+    return ""

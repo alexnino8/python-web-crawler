@@ -1,4 +1,5 @@
 import sys
+from crawl import get_html
 
 def main():
 
@@ -10,9 +11,11 @@ def main():
         print("too many arguments provided")
         sys.exit(1)
 
-    print(f"starting crawl of {sys.argv[1]}")
+    website = sys.argv[1]
 
+    print(f"starting crawl of {website}")
 
+    print(get_html(website))
 
 
 if __name__ == "__main__":
