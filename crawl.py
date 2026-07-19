@@ -29,6 +29,9 @@ def get_heading_from_html(html: str) -> str:
 
     return heading
 
+# this function will return the first paragraph inside main tag
+# with fallback to the first paragraph 
+# or an empty string of there is no paragraph tags
 def get_first_paragraph_from_html(html: str) -> str:
     soup = BeautifulSoup(html, 'html.parser')
 
@@ -42,3 +45,17 @@ def get_first_paragraph_from_html(html: str) -> str:
         
     return ""
     
+def get_urls_from_html(html: str, base_url: str) -> list[str]:
+    urls = []
+    soup = BeautifulSoup(html, 'html.parser')
+    links = soup.find_all('a', href=True)
+    for link in links:
+        if not isinstance(link, Tag):
+            continue
+        href = str(link['href'])
+        if href.startswith(base_url):
+            urls.append(href)
+        else:
+            urls.append(urllib.parse.urljoin(base_url, href))
+
+    return urls
