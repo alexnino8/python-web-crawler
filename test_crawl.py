@@ -1,5 +1,5 @@
 import unittest
-from crawl import normalize_url, get_heading_from_html, get_first_paragraph_from_html, get_urls_from_html, get_images_from_html
+from crawl import normalize_url, get_heading_from_html, get_first_paragraph_from_html, get_urls_from_html, get_images_from_html, extract_page_data
 
 class TestNormalizeUrl(unittest.TestCase):
     def test_normalize_url_with_https(self):
@@ -217,7 +217,68 @@ class TestGetImagesFromHTML(unittest.TestCase):
         expected = ["https://crawler-test.com/logo.png", "https://crawler-test.com/banner.png"]
         self.assertEqual(actual, expected)
         
-             
+class TestExtractPageData(unittest.TestCase):
+    def test_extract_page_data_basic(self):
+        input_url = "https://crawler-test.com"
+        input_body = '''
+        <html>
+            <body>
+                <h1>Test Title</h1>
+                <p>This is the first paragraph.</p>
+                <a href="/link1">Link 1</a>
+                <img src="/image1.jpg" alt="Image 1">
+            </body>
+        </html>'''
+        actual = extract_page_data(input_body, input_url)
+        expected = {
+            "url": "https://crawler-test.com",
+            "heading": "Test Title",
+            "first_paragraph": "This is the first paragraph.",
+            "outgoing_links": ["https://crawler-test.com/link1"],
+            "image_urls": ["https://crawler-test.com/image1.jpg"]
+            }
+        self.assertEqual(actual, expected)
+
+    def test_extract_page_data_mixed(self):
+        input_url = "https://crawler-test.com"
+        input_body = '''
+        <html>
+            <body>
+                <h1>Test Title</h1>
+                <p>This is the first paragraph.</p>
+                <a href="/link1">Link 1</a>
+                <img src="/image1.jpg" alt="Image 1">
+                <a href="https://crawler-test.com/link2">Link 2</a>
+                <img src="https://crawler-test.com/image2.jpg" alt="Image 2">
+            </body>
+        </html>'''
+        actual = extract_page_data(input_body, input_url)
+        expected = {
+            "url": "https://crawler-test.com",
+            "heading": "Test Title",
+            "first_paragraph": "This is the first paragraph.",
+            "outgoing_links": ["https://crawler-test.com/link1", "https://crawler-test.com/link2"],
+            "image_urls": ["https://crawler-test.com/image1.jpg", "https://crawler-test.com/image2.jpg"]
+            }
+        self.assertEqual(actual, expected)
+
+    def test_extract_page_data_no_data(self):
+        input_url = "https://crawler-test.com"
+        input_body = '''
+        <html>
+            <body>
+
+            </body>
+        </html>'''
+        actual = extract_page_data(input_body, input_url)
+        expected = {
+            "url": "https://crawler-test.com",
+            "heading": "",
+            "first_paragraph": "",
+            "outgoing_links": [],
+            "image_urls": []
+            }
+        self.assertEqual(actual, expected) 
     
 
 if __name__ == "__main__":

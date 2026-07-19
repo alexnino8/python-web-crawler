@@ -1,5 +1,14 @@
 import urllib.parse
+from typing import TypedDict
 from bs4 import BeautifulSoup, Tag
+
+
+class PageData(TypedDict):
+    url: str
+    heading: str
+    first_paragraph: str
+    outgoing_links: list[str]
+    image_urls: list[str]
 
 
 
@@ -81,3 +90,22 @@ def get_images_from_html(html: str, base_url: str) -> list[str]:
                 print(f"{str(e)}: {src}")   
 
     return image_links
+
+# this function extracts the heading, first p, urls and image links 
+# from a provided page_url
+def extract_page_data(html: str, page_url: str) -> PageData:
+    page_data : PageData = {
+        "url": page_url,
+        "heading": "",
+        "first_paragraph": "",
+        "outgoing_links": [],
+        "image_urls": []
+    }
+
+    page_data['heading'] = get_heading_from_html(html)
+    page_data['first_paragraph'] = get_first_paragraph_from_html(html)
+    page_data['outgoing_links'] = get_urls_from_html(html, page_url)
+    page_data['image_urls'] = get_images_from_html(html, page_url)
+
+    return page_data
+
