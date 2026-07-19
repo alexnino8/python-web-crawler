@@ -1,5 +1,5 @@
 import unittest
-from crawl import normalize_url, get_heading_from_html, get_first_paragraph_from_html, get_urls_from_html
+from crawl import normalize_url, get_heading_from_html, get_first_paragraph_from_html, get_urls_from_html, get_images_from_html
 
 class TestNormalizeUrl(unittest.TestCase):
     def test_normalize_url_with_https(self):
@@ -173,7 +173,51 @@ class TestGetURLsFromHTML(unittest.TestCase):
         expected = ["https://crawler-test.com/crawlers", "https://crawler-test.com/settings"]
         self.assertEqual(actual, expected)
         
-    
+class TestGetImagesFromHTML(unittest.TestCase):
+    def test_get_images_from_html_relative(self):
+        input_url = "https://crawler-test.com"
+        html_doc = '''
+        <html>
+            <body>
+                <img src="/logo.png" alt="Logo">
+            </body>
+        </html>
+
+        '''
+        actual = get_images_from_html(html_doc, input_url)
+        expected = ["https://crawler-test.com/logo.png"]
+        self.assertEqual(actual, expected)
+
+    def test_get_images_from_html_absolute(self):
+        input_url = "https://crawler-test.com"
+        html_doc = '''
+        <html>
+            <body>
+                <img src="https://crawler-test.com/logo.png" alt="Logo">
+            </body>
+        </html>
+
+        '''
+        actual = get_images_from_html(html_doc, input_url)
+        expected = ["https://crawler-test.com/logo.png"]
+        self.assertEqual(actual, expected)
+
+    def test_get_images_from_html_mixed(self):
+        input_url = "https://crawler-test.com"
+        html_doc = '''
+        <html>
+            <body>
+                <img src="https://crawler-test.com/logo.png" alt="Logo">
+            </body>
+            <img src="/banner.png" alt="Logo">
+        </html>
+
+        '''
+        actual = get_images_from_html(html_doc, input_url)
+        expected = ["https://crawler-test.com/logo.png", "https://crawler-test.com/banner.png"]
+        self.assertEqual(actual, expected)
+        
+             
     
 
 if __name__ == "__main__":

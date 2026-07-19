@@ -44,7 +44,8 @@ def get_first_paragraph_from_html(html: str) -> str:
         return str(first_p.string)
         
     return ""
-    
+
+# this function extracts all urls in <a> tags that have a href attribute
 def get_urls_from_html(html: str, base_url: str) -> list[str]:
     urls = []
     soup = BeautifulSoup(html, 'html.parser')
@@ -56,6 +57,27 @@ def get_urls_from_html(html: str, base_url: str) -> list[str]:
         if href.startswith(base_url):
             urls.append(href)
         else:
-            urls.append(urllib.parse.urljoin(base_url, href))
-
+            try:
+                urls.append(urllib.parse.urljoin(base_url, href))
+            except Exception as e:
+                 print(f"{str(e)}: {href}")
     return urls
+
+# this function extracts the image urls found within the html
+def get_images_from_html(html: str, base_url: str) -> list[str]:
+    image_links = []
+    soup = BeautifulSoup(html, 'html.parser')
+    images = soup.find_all('img', src=True)
+    for img in images:
+        if not isinstance(img, Tag):
+            continue
+        src = str(img['src'])
+        if src.startswith(base_url):
+            image_links.append(src)
+        else:
+            try:
+                image_links.append(urllib.parse.urljoin(base_url, src))
+            except Exception as e:
+                print(f"{str(e)}: {src}")   
+
+    return image_links
