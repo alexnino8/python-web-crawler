@@ -19,12 +19,12 @@ def normalize_url(url: str) -> str:
     netloc = url_obj.netloc
     path = url_obj.path
 
-    if path[-1] == "/":
+    if path and path[-1] == "/":
         path = path [:-1]
 
     normalized_url = netloc + path
 
-    return normalized_url
+    return normalized_url.lower()
 
 # this function will return the h1 with fallback to h2 
 def get_heading_from_html(html: str) -> str:
@@ -110,22 +110,46 @@ def extract_page_data(html: str, page_url: str) -> PageData:
 
     return page_data
 
+# this function returns the html of a provided url
 def get_html(url: str) -> str:
     headers = {'user-agent': "BootCrawler/1.0"}
 
-    try:    
-        r = requests.get(url, headers=headers)
-        if r.status_code >= 400:
-            raise Exception(f"Client/Server error: {r.status_code}")
-        
-        if r.headers['Content-Type'] != "text/html":
-            raise Exception(f"not html: {r.headers['Content-Type']}")
+    r = requests.get(url, headers=headers)
+    if r.status_code >= 400:
+        raise Exception(f"Client/Server error: {r.status_code}")
     
-    except Exception:
-        raise 
+    if not r.headers.get('Content-Type', '').startswith('text/html'):
+        raise Exception(f"not html: {r.headers.get('Content-Type')}")
 
-    return str(r.content)
+    return r.text
+
+def crawl_page(base_url: str, current_url: str | None=None, page_data: dict[str,PageData] | None=None):
+    if current_url is None:
+        current_url = base_url
+    if page_data is None:
+        page_data = {}
+
+    if urllib.parse.urlparse(current_url).hostname != urllib.parse.urlparse(base_url).hostname:
+        return
+    
+    normalized_url = normalize_url(current_url)
+    if normalized_url in page_data:
+        return
+    try:
+        html = get_html(current_url)
+        print(f"crawling: {current_url}")
+    except Exception as e:
+        print(f"skipping {current_url}: {e}")
+        return
+    
+    
+    rich_data = extract_page_data(html, current_url)
+    page_data[normalized_url] = rich_data
+
+    for link in rich_data['outgoing_links']:
+        crawl_page(base_url, link, page_data)
+
+    
 
 
 
-    return ""
