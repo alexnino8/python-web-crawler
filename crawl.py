@@ -1,7 +1,10 @@
 import urllib.parse
-from typing import TypedDict
+from typing import TypedDict, Optional, Any
 from bs4 import BeautifulSoup, Tag
 import requests
+import asyncio
+import aiohttp
+
 
 
 class PageData(TypedDict):
@@ -10,6 +13,151 @@ class PageData(TypedDict):
     first_paragraph: str
     outgoing_links: list[str]
     image_urls: list[str]
+
+class AsyncCrawler():
+    # base_url: str
+    # base_domain: str
+    # page_data: PageData
+    # lock: asyncio.Lock
+    # semaphore: asyncio.Semaphore
+    # max_concurrency: int
+    # session: aiohttp.ClientSession
+
+    def __init__(self, base_url: str, max_concurrency: int = 10, max_pages: int = 100) -> None:
+
+        self.base_url: str = base_url
+        self.base_domain: str = urllib.parse.urlparse(base_url).netloc
+        self.page_data: dict[str, PageData] = {}
+
+        self.lock: asyncio.Lock = asyncio.Lock()
+        self.max_concurrency: int = max_concurrency
+        self.semaphore: asyncio.Semaphore = asyncio.Semaphore(value=self.max_concurrency)
+        self.session: aiohttp.ClientSession
+        self.max_pages: int = max_pages
+        self.should_stop: bool = False
+        self.all_tasks: set = set()
+        
+
+    async def __aenter__(self):
+        self.session = aiohttp.ClientSession()
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.session.close()
+
+    async def add_page_visit(self, normalized_url: str):
+        async with self.lock:
+            if self.should_stop == True:
+                return False
+
+            if normalized_url in self.page_data:
+                return False
+
+            if len(self.page_data) > self.max_pages:
+                self.should_stop = True
+                print("Reached maximum number of pages to crawl.")
+                for task in self.all_tasks:
+                    task.cancel()
+                return False
+
+            return True        
+            
+            
+        
+    async def get_html(self, url: str) -> str | None:
+        headers = {'user-agent': "BootCrawler/1.0"}
+
+        try:
+            async with self.session.get(url, headers=headers) as resp:
+                if resp.status >= 400:
+                    print(f"Client/Server error: {resp.status}")
+                    return None
+
+                if not resp.headers.get('Content-Type', '').startswith('text/html'):
+                    print(f"not html: {resp.headers.get('Content-Type')}")
+                    return None
+
+                return await resp.text()
+        except Exception as e:
+            print(e)
+            return None
+        
+    async def crawl_page(self, base_url: str, current_url: str | None=None):
+        if self.should_stop == True:
+            return
+
+        if current_url is None:
+            current_url = base_url
+
+        if urllib.parse.urlparse(current_url).hostname != urllib.parse.urlparse(base_url).hostname:
+                return
+
+        normalized_url = normalize_url(current_url)
+        
+        if await self.add_page_visit(normalized_url) == False:
+            return
+
+        async with self.semaphore:
+            try:
+                print(f"crawling: {current_url}")
+                html = await self.get_html(current_url)
+            except Exception as e:
+                print(f"skipping {current_url}: {e}")
+                return
+
+            
+        if html is None:
+            return
+
+        
+        data = extract_page_data(html, current_url)
+        async with self.lock:
+            self.page_data[normalized_url] = data
+
+        urls = data['outgoing_links']
+
+        tasks = []
+        for url in urls:
+            task = asyncio.create_task(self._crawl_and_cleanup(base_url, url))
+            self.all_tasks.add(task)
+            tasks.append(task)
+
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def _crawl_and_cleanup(self, base_url: str, url: str):
+        try:
+            await self.crawl_page(base_url, url)
+        finally:
+            self.all_tasks.discard(asyncio.current_task())
+
+
+    async def crawl(self) -> dict[str, PageData] | None:
+        base_url = self.base_url
+
+        await self.crawl_page(base_url)
+
+        return self.page_data
+
+    
+
+
+
+async def crawl_site_async(base_url: str, max_concurrency: int = 10, max_pages: int = 100) -> dict[str, PageData] | None:
+
+    async with AsyncCrawler(base_url, max_concurrency=max_concurrency, max_pages=max_pages) as crawler:
+        await crawler.crawl()
+        return crawler.page_data
+   
+
+
+
+
+
+
+        
+
+
 
 
 
@@ -110,44 +258,6 @@ def extract_page_data(html: str, page_url: str) -> PageData:
 
     return page_data
 
-# this function returns the html of a provided url
-def get_html(url: str) -> str:
-    headers = {'user-agent': "BootCrawler/1.0"}
-
-    r = requests.get(url, headers=headers)
-    if r.status_code >= 400:
-        raise Exception(f"Client/Server error: {r.status_code}")
-    
-    if not r.headers.get('Content-Type', '').startswith('text/html'):
-        raise Exception(f"not html: {r.headers.get('Content-Type')}")
-
-    return r.text
-
-def crawl_page(base_url: str, current_url: str | None=None, page_data: dict[str,PageData] | None=None):
-    if current_url is None:
-        current_url = base_url
-    if page_data is None:
-        page_data = {}
-
-    if urllib.parse.urlparse(current_url).hostname != urllib.parse.urlparse(base_url).hostname:
-        return
-    
-    normalized_url = normalize_url(current_url)
-    if normalized_url in page_data:
-        return
-    try:
-        html = get_html(current_url)
-        print(f"crawling: {current_url}")
-    except Exception as e:
-        print(f"skipping {current_url}: {e}")
-        return
-    
-    
-    rich_data = extract_page_data(html, current_url)
-    page_data[normalized_url] = rich_data
-
-    for link in rich_data['outgoing_links']:
-        crawl_page(base_url, link, page_data)
 
     
 
